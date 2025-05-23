@@ -1,0 +1,4 @@
+com\example\MovieWatchlistApplication.class
+com\example\MovieController.class
+com\example\MovieRepository.class
+com\example\Movie.class
