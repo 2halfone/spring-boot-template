@@ -9,12 +9,12 @@
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>3.4.5</version>
         <relativePath/> <!-- lookup parent from repository -->
-    </parent>
-
-    <groupId>com.example</groupId>
-    <artifactId>movie-watchlist-function</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    </parent>    <groupId>com.example</groupId>
+    <artifactId>springmon</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
     <packaging>jar</packaging>
+    <name>SpringMon</name>
+    <description>Generic Spring Boot Application</description>
 
     <properties>
         <java.version>17</java.version>

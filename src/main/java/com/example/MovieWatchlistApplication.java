@@ -1,11 +1,11 @@
-package com.example;
+package com.example.springmon;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class MovieWatchlistApplication {
+public class SpringMonApplication {
     public static void main(String[] args) {
-        SpringApplication.run(MovieWatchlistApplication.class, args);
+        SpringApplication.run(SpringMonApplication.class, args);
     }
 }

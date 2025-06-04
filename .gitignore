@@ -1,9 +1,28 @@
-HELP.md
+# 🚀 SpringMon Microservices - GitIgnore
+
+# Maven build artifacts
 target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
 
+# Docker & Docker Compose
+docker-compose.override.yml
+.env
+.env.local
+.env.production
+
+# Logs
+logs/
+*.log
+*.log.*
+
+# Database data (when using local volumes)
+postgres_data/
+redis_data/
+database/data/
+
+# IDE files
 ### STS ###
 .apt_generated
 .classpath
@@ -31,3 +50,47 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# OS specific files
+### macOS ###
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+### Windows ###
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Security & Secrets
+application-secret.properties
+application-local.properties
+*.key
+*.p12
+*.jks
+
+# Runtime & Cache
+.cache/
+node_modules/
+npm-debug.log*
+
+# Backup files
+*.backup
+*.bak
+*.orig
+
+# Test reports
+/test-results/
+/coverage/

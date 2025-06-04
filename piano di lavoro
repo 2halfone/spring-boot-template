@@ -1,0 +1,674 @@
+# 📋 PIANO DI LAVORO - SPRINGMON MICROSERVICES CON DOCKER COMPOSE
+
+## 🎯 **OBIETTIVO FINALE**
+Creare architettura microservizi **completamente isolata** con **Docker Compose**:
+- **🚪 Gateway Service** (Port 8080) - **UNICO PUNTO DI ACCESSO ESTERNO**
+- **🔐 Auth Service** (INTERNO) - Autenticazione + PostgreSQL  
+- **🗄️ PostgreSQL Database** (INTERNO) - Persistence sicura
+- **📦 Redis** (INTERNO) - Caching e rate limiting
+- **🔒 JWT Authentication** - Sicurezza end-to-end
+- **🛡️ Network Isolation** - Nessun microservizio esposto direttamente
+
+### **🔒 PRINCIPI DI SICUREZZA**
+1. **Zero External Exposure**: Solo Gateway ha porte esposte (8080)
+2. **Internal Network Only**: Tutti i microservizi comunicano via Docker network interno
+3. **Gateway-First Authentication**: Ogni richiesta passa da Gateway → Auth-Service
+4. **Database Isolation**: PostgreSQL accessibile solo da Auth-Service
+5. **Future-Proof**: Architettura pronta per nuovi microservizi isolati
+
+---
+
+## 🐳 **ARCHITETTURA DOCKER COMPOSE - ISOLAMENTO COMPLETO**
+
+```yaml
+version: '3.8'
+services:
+  # Database - SOLO INTERNO
+  postgres:
+    image: postgres:15
+    # NESSUNA PORTA ESPOSTA ESTERNAMENTE
+    expose: ["5432"]  # Solo visibile nel network interno
+    environment:
+      POSTGRES_DB: springmon_auth
+      POSTGRES_USER: springmon
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - springmon-internal
+
+  # Redis - SOLO INTERNO
+  redis:
+    image: redis:7-alpine
+    # NESSUNA PORTA ESPOSTA ESTERNAMENTE
+    expose: ["6379"]  # Solo visibile nel network interno
+    networks:
+      - springmon-internal
+
+  # Auth Service - SOLO INTERNO
+  auth-service:
+    build: ./auth-service
+    # NESSUNA PORTA ESPOSTA ESTERNAMENTE
+    expose: ["8081"]  # Solo visibile nel network interno
+    depends_on: [postgres, redis]
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      REDIS_HOST: redis
+    networks:
+      - springmon-internal
+
+  # Gateway Service - UNICO ACCESSO ESTERNO
+  gateway-service:
+    build: ./gateway-service
+    ports: ["8080:8080"]  # UNICA PORTA ESPOSTA
+    depends_on: [auth-service]
+    environment:
+      AUTH_SERVICE_URL: http://auth-service:8081
+      REDIS_HOST: redis
+    networks:
+      - springmon-internal
+
+networks:
+  springmon-internal:
+    driver: bridge
+    internal: false  # Permette accesso esterno solo al gateway
+
+volumes:
+  postgres_data:
+```
+
+### **🔐 FLUSSO DI SICUREZZA**
+```
+🌐 CLIENT → 🚪 GATEWAY (8080) → 🔐 AUTH-SERVICE → 🗄️ POSTGRES
+                    ↓
+              🔒 JWT TOKEN VALIDATION
+                    ↓
+              📦 BUSINESS SERVICES (futuri)
+```
+
+---
+
+## 🛡️ **STRATEGIA DI ISOLAMENTO E SICUREZZA**
+
+### **🔒 Zero Trust Architecture**
+L'architettura implementa i principi **Zero Trust** con isolamento completo:
+
+1. **Single Entry Point**: Solo Gateway (8080) accessibile dall'esterno
+2. **Internal Communication Only**: Tutti i microservizi comunicano via network Docker interno
+3. **Gateway-First Authentication**: Ogni richiesta passa prima da Gateway per validazione JWT
+4. **Database Isolation**: PostgreSQL accessibile solo da Auth-Service
+5. **Future-Proof**: Nuovi microservizi seguiranno lo stesso pattern di isolamento
+
+### **🌐 Flusso di Comunicazione**
+```
+🌍 INTERNET
+    ↓
+🚪 GATEWAY (8080) ← UNICO PUNTO DI ACCESSO
+    ↓ (validate JWT)
+🔐 AUTH-SERVICE (interno:8081)
+    ↓ (query user/permissions)
+🗄️ POSTGRES (interno:5432)
+    ↓ (cache session)
+📦 REDIS (interno:6379)
+
+🔮 FUTURE MICROSERVICES:
+🚪 GATEWAY → 🛒 PRODUCT-SERVICE (interno)
+🚪 GATEWAY → 📊 ANALYTICS-SERVICE (interno)
+🚪 GATEWAY → 📧 NOTIFICATION-SERVICE (interno)
+```
+
+### **🔐 Vantaggi Architettura Isolata**
+
+#### **Sicurezza Maximale**
+- ✅ **Attack Surface Ridotta**: Solo Gateway esposto
+- ✅ **Lateral Movement Prevention**: Microservizi non raggiungibili dall'esterno
+- ✅ **Database Protection**: PostgreSQL completamente isolato
+- ✅ **Centralized Authentication**: Controllo di accesso centralizzato
+
+#### **Scalabilità Controllata**
+- ✅ **Independent Scaling**: Ogni microservizio scale indipendentemente
+- ✅ **Load Balancing**: Gateway gestisce distribuzione carico
+- ✅ **Service Discovery**: Comunicazione interna via Docker DNS
+- ✅ **Circuit Breaking**: Resilienza per failure dei microservizi
+
+#### **Manutenibilità**
+- ✅ **Clear Separation**: Responsabilità ben definite
+- ✅ **Easy Testing**: Network isolation semplifica testing
+- ✅ **Monitoring Centralized**: Gateway point per metrics
+- ✅ **Deployment Independence**: Deploy microservizi senza downtime
+
+---
+
+## 🗓️ **FASI DEL PROGETTO AGGIORNATE**
+
+### **FASE 1: SETUP DOCKER COMPOSE ENVIRONMENT** ⏱️ *2-3 ore*
+
+#### **Task 1.1: Backup e Preparazione**
+- [x] ✅ Creare backup completo del progetto attuale
+- [ ] Fermare SpringMon attuale 
+- [ ] Documentare configurazione esistente
+- [ ] Creare struttura directory per Docker Compose
+
+#### **Task 1.2: Struttura Multi-Servizio**
+- [ ] Creare parent directory `springmon-microservices/`
+- [ ] Creare struttura moduli:
+  ```
+  springmon-microservices/
+  ├── docker-compose.yml           # Orchestrazione principale
+  ├── docker-compose.dev.yml       # Override per development
+  ├── docker-compose.prod.yml      # Override per production
+  ├── gateway-service/             # Port 8080
+  ├── auth-service/                # Port 8081  
+  ├── database/                    # Schema e migrations
+  ├── redis/                       # Cache configuration
+  └── scripts/                     # Utility scripts
+  ```
+
+#### **Task 1.3: Database Container Setup**
+- [ ] Creare `docker-compose.yml` base
+- [ ] Configurare PostgreSQL container
+- [ ] Creare script di inizializzazione database
+- [ ] Aggiungere Redis container per caching
+- [ ] Configurare volumi persistenti
+
+**Deliverable Fase 1:**
+```
+✅ Docker Compose environment pronto
+✅ PostgreSQL + Redis containers configurati
+✅ Struttura directory microservizi creata
+✅ Script di inizializzazione database
+```
+
+---
+
+### **FASE 2: AUTH-SERVICE CONTAINERIZATION** ⏱️ *4-5 ore*
+
+#### **Task 2.1: Preparazione Auth-Service**
+- [ ] Copiare codice SpringMon attuale in `auth-service/`
+- [ ] **RIMUOVERE** tutte le porte esposte esternamente
+- [ ] Configurare **SOLO** `expose: ["8081"]` per network interno
+- [ ] Rimuovere H2, configurare PostgreSQL con host interno
+- [ ] Aggiornare application.yml per comunicazione Docker network-only
+
+#### **Task 2.2: Docker Configuration per Auth-Service**
+- [ ] Creare `auth-service/Dockerfile`:
+  ```dockerfile
+  FROM openjdk:17-jdk-slim
+  COPY target/auth-service-*.jar app.jar
+  # NESSUNA PORTA ESPOSTA - Solo network interno
+  EXPOSE 8081
+  ENTRYPOINT ["java", "-jar", "/app.jar"]
+  ```
+- [ ] **IMPORTANTE**: Non usare `ports` nel docker-compose per auth-service
+- [ ] Configurare solo `expose` per comunicazione interna
+- [ ] Aggiungere health check nel Dockerfile
+- [ ] Configurare environment variables
+
+#### **Task 2.3: JWT Authentication Implementation**
+- [ ] Aggiungere dependencies JWT in pom.xml:
+  ```xml
+  <dependency>
+      <groupId>io.jsonwebtoken</groupId>
+      <artifactId>jjwt-api</artifactId>
+      <version>0.11.5</version>
+  </dependency>
+  ```
+- [ ] Implementare JwtUtils class
+- [ ] Creare AuthController con endpoint autenticazione
+- [ ] Configurare Spring Security
+
+#### **Task 2.4: Database Integration**
+- [ ] Creare entità User, Role con JPA
+- [ ] Configurare connection pool per PostgreSQL
+- [ ] Implementare UserRepository e UserService
+- [ ] Aggiungere data validation con Bean Validation
+
+#### **Task 2.5: Container Testing**
+- [ ] Build e test auth-service container
+- [ ] Verificare connessione a PostgreSQL container
+- [ ] Test endpoint autenticazione
+- [ ] Logging e monitoring setup
+
+**Deliverable Fase 2:**
+```
+✅ Auth-Service containerizzato e funzionante
+✅ PostgreSQL integration completa
+✅ JWT authentication implementata
+✅ Docker build e deploy automatizzati
+```
+
+---
+
+### **FASE 3: GATEWAY SERVICE DEVELOPMENT** ⏱️ *3-4 ore*
+
+#### **Task 3.1: Gateway Service Creation**
+- [ ] Creare nuovo progetto Spring Boot in `gateway-service/`
+- [ ] Aggiungere Spring Cloud Gateway dependencies:
+  ```xml
+  <dependency>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-starter-gateway</artifactId>
+  </dependency>
+  ```
+- [ ] Configurare routing verso auth-service
+- [ ] Setup porta 8080 per accesso esterno
+
+#### **Task 3.2: Gateway Docker Configuration**
+- [ ] Creare `gateway-service/Dockerfile`
+- [ ] Configurare docker networking per comunicazione inter-container
+- [ ] Setup environment variables per service discovery
+- [ ] Aggiungere al docker-compose.yml
+
+#### **Task 3.3: Security Integration nel Gateway**
+- [ ] Implementare JWT validation filter nel gateway
+- [ ] Configurare CORS policy centralizzata
+- [ ] Aggiungere rate limiting con Redis
+- [ ] Implementare circuit breaker
+
+#### **Task 3.4: Gateway Routes Configuration**
+- [ ] Configurare routes in `application.yml`:
+  ```yaml
+  spring:
+    cloud:
+      gateway:
+        routes:
+          - id: auth-service
+            uri: http://auth-service:8081
+            predicates:
+              - Path=/auth/**
+  ```
+
+**Deliverable Fase 3:**
+```
+✅ Gateway Service containerizzato su porta 8080
+✅ Routing verso auth-service configurato  
+✅ JWT validation nel gateway implementata
+✅ Rate limiting e CORS configurati
+```
+
+---
+
+### **FASE 4: DOCKER COMPOSE ORCHESTRATION** ⏱️ *2-3 ore*
+
+#### **Task 4.1: Complete Docker Compose Setup**
+- [ ] Finalizzare `docker-compose.yml` con tutti i servizi
+- [ ] Configurare dipendenze tra container (depends_on)
+- [ ] Setup health checks per tutti i servizi
+- [ ] Configurare restart policies
+
+#### **Task 4.2: Environment Configuration**
+- [ ] Creare `.env` file per variabili di ambiente
+- [ ] Configurare profili dev/staging/prod
+- [ ] Setup secrets management
+- [ ] Database initialization scripts
+
+#### **Task 4.3: Docker Compose Commands**
+- [ ] Creare script di utility in `scripts/`:
+  ```bash
+  # scripts/start.sh
+  docker-compose up -d
+  
+  # scripts/stop.sh  
+  docker-compose down
+  
+  # scripts/logs.sh
+  docker-compose logs -f
+  
+  # scripts/rebuild.sh
+  docker-compose down && docker-compose build && docker-compose up -d
+  ```
+
+#### **Task 4.4: Networking e Volumes**
+- [ ] Configurare custom Docker network
+- [ ] Setup volumi persistenti per database
+- [ ] Configurare backup automatico database
+- [ ] Network security configuration
+
+**Deliverable Fase 4:**
+```
+✅ Docker Compose completo e funzionante
+✅ Tutti i servizi orchestrati correttamente
+✅ Scripts di gestione automatizzati  
+✅ Backup e persistence configurati
+```
+
+---
+
+### **FASE 5: TESTING E MONITORING** ⏱️ *2-3 ore*
+
+#### **Task 5.1: End-to-End Testing**
+- [ ] Test completo flusso autenticazione via Gateway
+- [ ] Verificare comunicazione inter-container
+- [ ] Test failover e recovery
+- [ ] Performance testing con carico
+
+#### **Task 5.2: Monitoring Setup**
+- [ ] Aggiungere Prometheus e Grafana al docker-compose:
+  ```yaml
+  prometheus:
+    image: prom/prometheus
+    ports: ["9090:9090"]
+    
+  grafana:
+    image: grafana/grafana
+    ports: ["3000:3000"]
+  ```
+- [ ] Configurare metriche applicazione
+- [ ] Setup dashboard Grafana
+- [ ] Alerting configuration
+
+#### **Task 5.3: Logging Centralized**
+- [ ] Configurare ELK stack (Elasticsearch, Logstash, Kibana)
+- [ ] Centralizzare logs di tutti i container
+- [ ] Setup log rotation e retention
+- [ ] Monitoring e alerting su logs
+
+**Deliverable Fase 5:**
+```
+✅ Sistema completo testato e monitorato
+✅ Metriche e logging centralizzati
+✅ Dashboard operativo funzionante
+✅ Alerting configurato
+```
+
+---
+
+## 🐳 **DOCKER COMPOSE FILES**
+
+### **docker-compose.yml (Base)**
+```yaml
+version: '3.8'
+
+services:
+  # Database - SOLO RETE INTERNA
+  postgres:
+    image: postgres:15
+    container_name: springmon-postgres
+    restart: unless-stopped
+    # NESSUNA PORTA ESPOSTA ESTERNAMENTE
+    expose: ["5432"]  # Solo nel network interno
+    environment:
+      POSTGRES_DB: ${DB_NAME:-springmon_auth}
+      POSTGRES_USER: ${DB_USER:-springmon}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - springmon-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-springmon}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis Cache - SOLO RETE INTERNA
+  redis:
+    image: redis:7-alpine
+    container_name: springmon-redis
+    restart: unless-stopped
+    # NESSUNA PORTA ESPOSTA ESTERNAMENTE
+    expose: ["6379"]  # Solo nel network interno
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - springmon-internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Auth Service - SOLO RETE INTERNA
+  auth-service:
+    build: 
+      context: ./auth-service
+      dockerfile: Dockerfile
+    container_name: springmon-auth
+    restart: unless-stopped
+    # NESSUNA PORTA ESPOSTA ESTERNAMENTE
+    expose: ["8081"]  # Solo nel network interno
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-springmon_auth}
+      - DB_USER=${DB_USER:-springmon}
+      - DB_PASSWORD=${DB_PASSWORD:-password}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET:-mySecretKey123456789}
+    networks:
+      - springmon-internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    volumes:
+      - ./logs/auth-service:/app/logs
+
+  # Gateway Service - UNICO PUNTO DI ACCESSO ESTERNO
+  gateway-service:
+    build:
+      context: ./gateway-service
+      dockerfile: Dockerfile
+    container_name: springmon-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"  # UNICA PORTA ESPOSTA ESTERNAMENTE
+    depends_on:
+      auth-service:
+        condition: service_healthy
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - AUTH_SERVICE_URL=http://auth-service:8081  # Comunicazione interna
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    networks:
+      - springmon-internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    volumes:
+      - ./logs/gateway-service:/app/logs
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  springmon-internal:
+    driver: bridge
+    # Network interno per comunicazione sicura tra microservizi
+    # Solo gateway ha accesso esterno
+```
+
+### **docker-compose.dev.yml (Development Override)**
+```yaml
+version: '3.8'
+
+services:
+  # In development, PostgreSQL può essere accessibile per debug
+  postgres:
+    ports:
+      - "5432:5432"  # Solo per development/debug
+    environment:
+      POSTGRES_DB: springmon_auth_dev
+    
+  # In development, Redis può essere accessibile per debug  
+  redis:
+    ports:
+      - "6379:6379"  # Solo per development/debug
+    
+  auth-service:
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev,docker
+      - LOGGING_LEVEL_ROOT=DEBUG
+    # IMPORTANTE: Anche in dev, auth-service NON deve essere esposto
+    # Solo il gateway rimane il punto di accesso
+      
+  gateway-service:
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev,docker
+      - LOGGING_LEVEL_ROOT=DEBUG
+```
+
+### **.env File**
+```bash
+# Database Configuration
+DB_NAME=springmon_auth
+DB_USER=springmon
+DB_PASSWORD=SecurePassword123!
+
+# JWT Configuration
+JWT_SECRET=MyVerySecureJWTSecretKey123456789012345678901234567890
+
+# Redis Configuration
+REDIS_PASSWORD=RedisSecurePassword123!
+
+# Application Configuration
+SPRING_PROFILES_ACTIVE=prod
+```
+
+---
+
+## 🚀 **COMANDI DOCKER COMPOSE**
+
+### **Sviluppo (Development)**
+```bash
+# Start tutti i servizi in development mode
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
+# Rebuild e restart
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+
+# Logs in tempo reale
+docker-compose logs -f
+
+# Logs specifico servizio
+docker-compose logs -f auth-service
+```
+
+### **Produzione (Production)**
+```bash
+# Start in production mode
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+# Scale specifico servizio
+docker-compose up -d --scale auth-service=3
+
+# Update senza downtime
+docker-compose up -d --no-deps auth-service
+```
+
+### **Gestione e Maintenance**
+```bash
+# Stop tutti i servizi
+docker-compose down
+
+# Stop e rimuovi volumi (ATTENZIONE: cancella i dati!)
+docker-compose down -v
+
+# Backup database (via gateway network)
+docker exec springmon-postgres pg_dump -U springmon springmon_auth > backup.sql
+
+# Restore database (via gateway network)
+docker exec -i springmon-postgres psql -U springmon springmon_auth < backup.sql
+
+# Accesso diretto ai logs (servizi interni)
+docker logs springmon-auth -f
+docker logs springmon-postgres -f
+
+# Accesso alla shell container interno (per debug)
+docker exec -it springmon-auth /bin/bash
+docker exec -it springmon-postgres psql -U springmon springmon_auth
+```
+
+---
+
+## 📈 **VANTAGGI DOCKER COMPOSE APPROACH**
+
+### **Semplicità di Deploy**
+- ✅ **Un comando per avviare tutto** (`docker-compose up -d`)
+- ✅ **Gestione dipendenze automatica** (depends_on, health checks)
+- ✅ **Environment isolato** e riproducibile
+- ✅ **Easy scaling** dei singoli servizi
+- ✅ **Zero External Exposure** - Solo Gateway accessibile
+
+### **Development Experience**
+- ✅ **Gateway-only access** anche in development
+- ✅ **Database persistence** tra riavvii
+- ✅ **Logs centralizzati** e facilmente accessibili
+- ✅ **Network isolation** automatica
+- ✅ **Microservizi completamente isolati**
+
+### **Production Ready**
+- ✅ **Security by Design** - Nessun microservizio esposto
+- ✅ **Health checks** integrati
+- ✅ **Restart policies** configurabili
+- ✅ **Secret management** via environment variables
+- ✅ **Backup strategies** sicure (via network interno)
+
+---
+
+## ✅ **CHECKLIST IMPLEMENTAZIONE**
+
+### **Preparazione:**
+- [ ] Docker e Docker Compose installati
+- [ ] Codice SpringMon attuale funzionante
+- [ ] Backup completo del progetto esistente
+- [ ] **Verificare che nessun servizio sia esposto esternamente tranne Gateway**
+
+### **Fase 1 - Setup:**
+- [ ] Struttura directory microservizi creata
+- [ ] docker-compose.yml con **SOLO Gateway esposto**
+- [ ] PostgreSQL e Redis configurati come **servizi interni**
+- [ ] Network Docker interno configurato
+
+### **Fase 2 - Auth Service:**
+- [ ] Dockerfile auth-service **senza porte esposte**
+- [ ] JWT authentication implementata
+- [ ] Database integration **solo via network interno**
+- [ ] Container build e test OK **senza accesso esterno diretto**
+
+### **Fase 3 - Gateway Service:**
+- [ ] Spring Cloud Gateway configurato come **unico punto di accesso**
+- [ ] Routing verso auth-service **via network interno**
+- [ ] JWT validation nel gateway implementata
+- [ ] Rate limiting configurato
+- [ ] **Verificare che auth-service NON sia raggiungibile dall'esterno**
+
+### **Fase 4 - Orchestration:**
+- [ ] docker-compose.yml con **isolamento completo**
+- [ ] Health checks configurati
+- [ ] Environment variables setup
+- [ ] Script di gestione creati
+- [ ] **Test isolamento: solo Gateway su porta 8080**
+
+### **Fase 5 - Go Live:**
+- [ ] End-to-end testing completato **via Gateway**
+- [ ] Monitoring e logging attivi
+- [ ] Backup procedures testate
+- [ ] Documentation completa
+- [ ] **Security audit: nessun microservizio accessibile direttamente**
+
+---
+
+**🐳 Status**: READY FOR DOCKER COMPOSE IMPLEMENTATION  
+**⏱️ Timeline**: 13-18 ore totali  
+**🎯 Obiettivo**: Microservizi orchestrati con Docker Compose  
+**🔒 Sicurezza**: **ZERO EXTERNAL EXPOSURE** - Solo Gateway (8080) accessibile  
+**🛡️ Isolation**: Tutti i microservizi comunicano SOLO via network interno
+
+Iniziamo dalla **Fase 1** creando la struttura Docker Compose con isolamento completo? 🚀

@@ -1,7 +1,7 @@
 # Read Me First
 The following was discovered as part of building this project:
 
-* The original package name 'com.example.movie-watchlist-function' is invalid and this project uses 'com.example.movie_watchlist_function' instead.
+* SpringMon is a generic Spring Boot application template with package 'com.example.springmon'.
 
 # Getting Started
 
